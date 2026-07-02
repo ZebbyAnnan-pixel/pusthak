@@ -11,22 +11,17 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-// Real ElevenLabs voice IDs from official documentation
-const VOICE_MAPPING: Record<string, string> = {
-  // English voices
-  jessica: 'XrExE9yKIg1WjnnlVkGX',    // Matilda - warm, young female, American (perfect for podcasts)
-  // Multilingual voices that work well for Hindi
-  akash: 'onwK4e9ZLuTAKqWW03F9',       // Daniel - deep male, British
-  anjali: '21m00Tcm4TlvDq8ikWAM',      // Rachel - calm young female, American
-  kanika: 'EXAVITQu4vr4xnSDxMaL',      // Sarah - soft young female, American
-  // Additional language voices
-  maria: 'ErXwobaYiN019PkySvjV',       // Antoni - young male, American
-  charlotte: 'XB0fDUnXU5powFXDhCwa',   // Charlotte - middle-aged female, English-Swedish
-  hans: 'pNInz6obpgDQGcFmaJgB',       // Adam - deep male, American
-  yuki: 'IKne3meq5aSn9XLyUdCD',        // Charlie - male, Australian
+// Map our voice IDs to language codes for Google Translate TTS
+const VOICE_LANGUAGE_MAP: Record<string, string> = {
+  jessica: 'en',
+  akash: 'hi',
+  anjali: 'hi',
+  kanika: 'hi',
+  maria: 'es',
+  charlotte: 'fr',
+  hans: 'de',
+  yuki: 'ja',
 };
-
-const DEFAULT_VOICE_ID = 'XrExE9yKIg1WjnnlVkGX'; // Matilda
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -54,81 +49,90 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const elevenLabsApiKey = Deno.env.get('ELEVENLABS_API_KEY');
+    const lang = VOICE_LANGUAGE_MAP[voice] || 'en';
+    console.log('Using language code:', lang);
 
-    if (!elevenLabsApiKey) {
-      console.error('ElevenLabs API key not configured');
-      return new Response(
-        JSON.stringify({ error: "ElevenLabs API key not configured. Please add ELEVENLABS_API_KEY to your secrets." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const voiceId = VOICE_MAPPING[voice] || DEFAULT_VOICE_ID;
-    console.log('Using voice ID:', voiceId);
-
-    // Truncate to stay within ElevenLabs free-tier quota (~1000 chars is safe)
-    const MAX_CHARS = 1000;
+    // Google Translate TTS has a ~200 char limit per request, so we chunk the text
+    const MAX_CHUNK = 190;
     let narrationText = text.trim();
-    if (narrationText.length > MAX_CHARS) {
-      // Truncate at the last sentence boundary before the limit
-      const truncated = narrationText.substring(0, MAX_CHARS);
+
+    // Truncate to a reasonable max for a free TTS service (3000 chars)
+    if (narrationText.length > 3000) {
+      const truncated = narrationText.substring(0, 3000);
       const lastSentenceEnd = Math.max(
         truncated.lastIndexOf('. '),
         truncated.lastIndexOf('! '),
         truncated.lastIndexOf('? '),
       );
-      narrationText = lastSentenceEnd > MAX_CHARS * 0.5
+      narrationText = lastSentenceEnd > 1500
         ? truncated.substring(0, lastSentenceEnd + 1)
         : truncated;
       console.log(`Truncated text from ${text.trim().length} to ${narrationText.length} chars`);
     }
 
-    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'xi-api-key': elevenLabsApiKey,
-      },
-      body: JSON.stringify({
-        text: narrationText,
-        model_id: 'eleven_multilingual_v2',
-        voice_settings: {
-          stability: 0.5,
-          similarity_boost: 0.75,
-          style: 0.25,
-          use_speaker_boost: true,
+    // Split into chunks at sentence boundaries
+    const chunks: string[] = [];
+    let remaining = narrationText;
+    while (remaining.length > MAX_CHUNK) {
+      let splitAt = remaining.lastIndexOf('. ', MAX_CHUNK);
+      if (splitAt === -1) splitAt = remaining.lastIndexOf(' ', MAX_CHUNK);
+      if (splitAt === -1) splitAt = MAX_CHUNK;
+      chunks.push(remaining.substring(0, splitAt + 1).trim());
+      remaining = remaining.substring(splitAt + 1).trim();
+    }
+    if (remaining) chunks.push(remaining);
+
+    console.log(`Split into ${chunks.length} chunks`);
+
+    // Fetch audio for each chunk
+    const audioBuffers: Uint8Array[] = [];
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i];
+      const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk)}&tl=${lang}&client=tw-ob`;
+
+      const response = await fetch(ttsUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Referer': 'https://translate.google.com/',
         },
-      }),
-    });
+      });
 
-    console.log('ElevenLabs API status:', response.status);
+      console.log(`Chunk ${i + 1}/${chunks.length} status: ${response.status}`);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('ElevenLabs API error:', response.status, errorText);
-      return new Response(
-        JSON.stringify({ error: `ElevenLabs API error: ${response.status}`, details: errorText }),
-        { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`TTS chunk ${i + 1} failed:`, response.status, errorText.substring(0, 200));
+        throw new Error(`TTS service returned ${response.status}`);
+      }
+
+      const buffer = new Uint8Array(await response.arrayBuffer());
+      audioBuffers.push(buffer);
     }
 
-    const audioBuffer = await response.arrayBuffer();
-    console.log('Audio buffer size:', audioBuffer.byteLength);
+    // Concatenate all MP3 chunks
+    const totalLength = audioBuffers.reduce((sum, buf) => sum + buf.length, 0);
+    const combined = new Uint8Array(totalLength);
+    let offset = 0;
+    for (const buf of audioBuffers) {
+      combined.set(buf, offset);
+      offset += buf.length;
+    }
 
-    return new Response(audioBuffer, {
+    console.log('Combined audio size:', combined.byteLength);
+
+    return new Response(combined.buffer, {
       status: 200,
       headers: {
         ...corsHeaders,
         'Content-Type': 'audio/mpeg',
-        'Content-Length': audioBuffer.byteLength.toString(),
+        'Content-Length': combined.byteLength.toString(),
       },
     });
 
   } catch (error) {
     console.error('Error processing request:', error);
     return new Response(
-      JSON.stringify({ error: "Failed to process request", details: error.message }),
+      JSON.stringify({ error: "Failed to generate audio", details: error.message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
