@@ -305,7 +305,11 @@ export default function NotebookWorkspace({ notebook, onBack, onSignOut }: Noteb
             'Content-Type': 'application/json',
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
           },
-          body: JSON.stringify({ question: `GENERATE_${genMode.toUpperCase()}`, sources }),
+          body: JSON.stringify({
+            question: `GENERATE_${genMode.toUpperCase()}`,
+            sources,
+            language: voices.find(v => v.id === selectedVoice)?.language || 'English'
+          }),
         },
       );
       const data = await res.json();

@@ -10,6 +10,7 @@ interface Source {
 interface ChatRequest {
   question: string;
   sources: Source[];
+  language?: string;
 }
 
 const corsHeaders = {
@@ -77,10 +78,12 @@ function isGenerationCommand(text: string): { isGeneration: boolean; mode: strin
   return { isGeneration: false, mode: null };
 }
 
-function getGenerationPrompt(mode: string, context: string): string {
+function getGenerationPrompt(mode: string, context: string, language: string = 'English'): string {
+  const languageNote = language !== 'English' ? `\n\nIMPORTANT: Write the content in ${language} language.` : '';
+
   switch (mode) {
     case 'summary':
-      return `Create a comprehensive summary of the following sources. Synthesize the key information into a cohesive narrative that captures the main points, themes, and insights. Make it engaging and informative.
+      return `Create a comprehensive summary of the following sources. Synthesize the key information into a cohesive narrative that captures the main points, themes, and insights. Make it engaging and informative.${languageNote}
 
 Sources:
 ${context}
@@ -88,7 +91,7 @@ ${context}
 Provide a well-structured summary that flows naturally and highlights the most important information.`;
 
     case 'notes':
-      return `Convert the following sources into well-organized study notes. Use clear headings, bullet points, and numbered lists where appropriate. Structure the information for easy review and learning.
+      return `Convert the following sources into well-organized study notes. Use clear headings, bullet points, and numbered lists where appropriate. Structure the information for easy review and learning.${languageNote}
 
 Sources:
 ${context}
@@ -105,7 +108,7 @@ Create comprehensive notes with:
 - Interesting connections between sources
 - Potential applications or implications
 - Questions for further exploration
-- Novel perspectives
+- Novel perspectives${languageNote}
 
 Sources:
 ${context}
@@ -113,7 +116,7 @@ ${context}
 Provide a thoughtful analysis with specific ideas and actionable insights.`;
 
     case 'podcast':
-      return `Transform the following sources into a narration-ready podcast monologue. Write as direct speech that can be read aloud - no host names, no speaker labels, no stage directions like [pause] or (music). Just flowing spoken content.
+      return `Transform the following sources into a narration-ready podcast monologue. Write as direct speech that can be read aloud - no host names, no speaker labels, no stage directions like [pause] or (music). Just flowing spoken content.${languageNote}
 
 Sources:
 ${context}
@@ -134,7 +137,7 @@ Write exactly what the AI voice should say - nothing more, nothing less.`;
   }
 }
 
-async function generateAIResponse(question: string, context: string, hasSources: boolean): Promise<{ answer: string; citations: Array<{ source: string; text: string }> }> {
+async function generateAIResponse(question: string, context: string, hasSources: boolean, language: string = 'English'): Promise<{ answer: string; citations: Array<{ source: string; text: string }> }> {
   const mistralApiKey = Deno.env.get('MISTRAL_API_KEY');
   const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
 
@@ -184,7 +187,7 @@ async function generateAIResponse(question: string, context: string, hasSources:
   // Handle generation mode vs regular question
   if (genCheck.isGeneration && genCheck.mode) {
     systemPrompt = `You are NotebookLM, a creative AI research assistant. Generate high-quality content based on the provided sources. Be engaging, insightful, and well-structured.`;
-    userPrompt = getGenerationPrompt(genCheck.mode, context);
+    userPrompt = getGenerationPrompt(genCheck.mode, context, language);
   } else {
     systemPrompt = `You are NotebookLM, a helpful AI research assistant. Answer questions based on the provided sources.
 
@@ -372,11 +375,12 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { question, sources } = await req.json() as ChatRequest;
+    const { question, sources, language } = await req.json() as ChatRequest;
 
     console.log('=== Request received ===');
     console.log('Question:', question);
     console.log('Sources count:', sources?.length || 0);
+    console.log('Language:', language || 'English');
 
     if (!question) {
       return new Response(
@@ -439,7 +443,7 @@ Deno.serve(async (req: Request) => {
     console.log('Context parts:', contextParts.length);
     console.log('Has real content:', hasSources);
 
-    const { answer, citations } = await generateAIResponse(question, context, hasSources);
+    const { answer, citations } = await generateAIResponse(question, context, hasSources, language || 'English');
 
     return new Response(
       JSON.stringify({
