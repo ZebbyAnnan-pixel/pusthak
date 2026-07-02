@@ -46,6 +46,89 @@ const notebookColors: Record<string, string> = {
 
 type Tab = 'sources' | 'chat' | 'generate';
 
+const voices = [
+  {
+    id: 'jessica',
+    name: 'Jessica',
+    language: 'English',
+    accent: 'American',
+    gender: 'Female',
+    style: 'Warm & Professional',
+    flag: '🇺🇸',
+    supported: ['English', 'French', 'German', 'Spanish', 'Italian', 'Portuguese']
+  },
+  {
+    id: 'akash',
+    name: 'Akash',
+    language: 'Hindi',
+    accent: 'Indian',
+    gender: 'Male',
+    style: 'Clear & Engaging',
+    flag: '🇮🇳',
+    supported: ['Hindi', 'English', 'Bengali', 'Tamil', 'Telugu']
+  },
+  {
+    id: 'anjali',
+    name: 'Anjali',
+    language: 'Hindi',
+    accent: 'Indian',
+    gender: 'Female',
+    style: 'Soft & Natural',
+    flag: '🇮🇳',
+    supported: ['Hindi', 'English', 'Marathi', 'Gujarati']
+  },
+  {
+    id: 'kanika',
+    name: 'Kanika',
+    language: 'Hindi',
+    accent: 'Indian',
+    gender: 'Female',
+    style: 'Expressive Storyteller',
+    flag: '🇮🇳',
+    supported: ['Hindi', 'English', 'Punjabi', 'Urdu']
+  },
+  {
+    id: 'maria',
+    name: 'Maria',
+    language: 'Spanish',
+    accent: 'Castilian',
+    gender: 'Female',
+    style: 'Elegant & Clear',
+    flag: '🇪🇸',
+    supported: ['Spanish', 'Portuguese', 'Catalan', 'English']
+  },
+  {
+    id: 'charlotte',
+    name: 'Charlotte',
+    language: 'French',
+    accent: 'French',
+    gender: 'Female',
+    style: 'Sophisticated & Smooth',
+    flag: '🇫🇷',
+    supported: ['French', 'English', 'German', 'Dutch']
+  },
+  {
+    id: 'hans',
+    name: 'Hans',
+    language: 'German',
+    accent: 'German',
+    gender: 'Male',
+    style: 'Authoritative & Deep',
+    flag: '🇩🇪',
+    supported: ['German', 'English', 'Austrian German']
+  },
+  {
+    id: 'yuki',
+    name: 'Yuki',
+    language: 'Japanese',
+    accent: 'Japanese',
+    gender: 'Female',
+    style: 'Gentle & Articulate',
+    flag: '🇯🇵',
+    supported: ['Japanese', 'English']
+  },
+];
+
 export default function NotebookWorkspace({ notebook, onBack, onSignOut }: NotebookWorkspaceProps) {
   const { user } = useAuth();
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -916,89 +999,6 @@ function GenerateView({
       tag: 'New'
     },
   ] as const;
-
-  const voices = [
-    {
-      id: 'jessica',
-      name: 'Jessica',
-      language: 'English',
-      accent: 'American',
-      gender: 'Female',
-      style: 'Warm & Professional',
-      flag: '🇺🇸',
-      supported: ['English', 'French', 'German', 'Spanish', 'Italian', 'Portuguese']
-    },
-    {
-      id: 'akash',
-      name: 'Akash',
-      language: 'Hindi',
-      accent: 'Indian',
-      gender: 'Male',
-      style: 'Clear & Engaging',
-      flag: '🇮🇳',
-      supported: ['Hindi', 'English', 'Bengali', 'Tamil', 'Telugu']
-    },
-    {
-      id: 'anjali',
-      name: 'Anjali',
-      language: 'Hindi',
-      accent: 'Indian',
-      gender: 'Female',
-      style: 'Soft & Natural',
-      flag: '🇮🇳',
-      supported: ['Hindi', 'English', 'Marathi', 'Gujarati']
-    },
-    {
-      id: 'kanika',
-      name: 'Kanika',
-      language: 'Hindi',
-      accent: 'Indian',
-      gender: 'Female',
-      style: 'Expressive Storyteller',
-      flag: '🇮🇳',
-      supported: ['Hindi', 'English', 'Punjabi', 'Urdu']
-    },
-    {
-      id: 'maria',
-      name: 'Maria',
-      language: 'Spanish',
-      accent: 'Castilian',
-      gender: 'Female',
-      style: 'Elegant & Clear',
-      flag: '🇪🇸',
-      supported: ['Spanish', 'Portuguese', 'Catalan', 'English']
-    },
-    {
-      id: 'charlotte',
-      name: 'Charlotte',
-      language: 'French',
-      accent: 'French',
-      gender: 'Female',
-      style: 'Sophisticated & Smooth',
-      flag: '🇫🇷',
-      supported: ['French', 'English', 'German', 'Dutch']
-    },
-    {
-      id: 'hans',
-      name: 'Hans',
-      language: 'German',
-      accent: 'German',
-      gender: 'Male',
-      style: 'Authoritative & Deep',
-      flag: '🇩🇪',
-      supported: ['German', 'English', 'Austrian German']
-    },
-    {
-      id: 'yuki',
-      name: 'Yuki',
-      language: 'Japanese',
-      accent: 'Japanese',
-      gender: 'Female',
-      style: 'Gentle & Articulate',
-      flag: '🇯🇵',
-      supported: ['Japanese', 'English']
-    },
-  ];
 
   return (
     <div className="space-y-6">
