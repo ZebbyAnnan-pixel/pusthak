@@ -25,6 +25,7 @@ import {
   BookOpen,
   Mic2,
   Globe,
+  AlertCircle,
 } from 'lucide-react';
 import { supabase, Notebook, Document, ChatMessage } from '../lib/supabase';
 import { useAuth } from '../lib/auth-context';
@@ -156,6 +157,7 @@ export default function NotebookWorkspace({ notebook, onBack, onSignOut }: Noteb
   // Podcast voice states
   const [selectedVoice, setSelectedVoice] = useState<string>('jessica');
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [audioError, setAudioError] = useState<string | null>(null);
   const [generatingAudio, setGeneratingAudio] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -418,6 +420,7 @@ export default function NotebookWorkspace({ notebook, onBack, onSignOut }: Noteb
 
     setGeneratingAudio(true);
     setAudioUrl(null);
+    setAudioError(null);
 
     try {
       const res = await fetch(
@@ -433,17 +436,26 @@ export default function NotebookWorkspace({ notebook, onBack, onSignOut }: Noteb
       );
 
       if (!res.ok) {
-        const errorData = await res.json();
-        console.error('API Error:', errorData);
-        throw new Error(errorData.error || errorData.details || 'Failed to generate audio');
+        let errorMsg = 'Failed to generate audio';
+        try {
+          const errorData = await res.json();
+          errorMsg = errorData.error || errorData.details || errorMsg;
+        } catch {
+          errorMsg = `Server error (${res.status}). Please try again.`;
+        }
+        console.error('API Error:', errorMsg);
+        throw new Error(errorMsg);
       }
 
       const audioBlob = await res.blob();
+      if (audioBlob.size === 0) {
+        throw new Error('Received empty audio response');
+      }
       const url = URL.createObjectURL(audioBlob);
       setAudioUrl(url);
     } catch (error) {
       console.error('Error generating audio:', error);
-      alert(`Failed to generate podcast audio: ${error.message || 'Unknown error'}. Check console for details.`);
+      setAudioError(error.message || 'Unknown error');
     } finally {
       setGeneratingAudio(false);
     }
@@ -574,6 +586,7 @@ export default function NotebookWorkspace({ notebook, onBack, onSignOut }: Noteb
             selectedVoice={selectedVoice}
             setSelectedVoice={setSelectedVoice}
             audioUrl={audioUrl}
+            audioError={audioError}
             generatingAudio={generatingAudio}
             onGenerateAudio={generatePodcastAudio}
             isPlaying={isPlaying}
@@ -938,6 +951,7 @@ function GenerateView({
   selectedVoice,
   setSelectedVoice,
   audioUrl,
+  audioError,
   generatingAudio,
   onGenerateAudio,
   isPlaying,
@@ -955,6 +969,7 @@ function GenerateView({
   selectedVoice: string;
   setSelectedVoice: (v: string) => void;
   audioUrl: string | null;
+  audioError: string | null;
   generatingAudio: boolean;
   onGenerateAudio: () => void;
   isPlaying: boolean;
@@ -1214,6 +1229,16 @@ function GenerateView({
                         <p className="text-sm text-slate-500">
                           {voices.find(v => v.id === selectedVoice)?.name} ({voices.find(v => v.id === selectedVoice)?.language})
                         </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {audioError && (
+                    <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-xl">
+                      <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-medium text-red-900">Couldn't generate audio</p>
+                        <p className="text-sm text-red-700 mt-1">{audioError}</p>
                       </div>
                     </div>
                   )}

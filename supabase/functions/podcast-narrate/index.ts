@@ -67,6 +67,23 @@ Deno.serve(async (req: Request) => {
     const voiceId = VOICE_MAPPING[voice] || DEFAULT_VOICE_ID;
     console.log('Using voice ID:', voiceId);
 
+    // Truncate to stay within ElevenLabs free-tier quota (~1000 chars is safe)
+    const MAX_CHARS = 1000;
+    let narrationText = text.trim();
+    if (narrationText.length > MAX_CHARS) {
+      // Truncate at the last sentence boundary before the limit
+      const truncated = narrationText.substring(0, MAX_CHARS);
+      const lastSentenceEnd = Math.max(
+        truncated.lastIndexOf('. '),
+        truncated.lastIndexOf('! '),
+        truncated.lastIndexOf('? '),
+      );
+      narrationText = lastSentenceEnd > MAX_CHARS * 0.5
+        ? truncated.substring(0, lastSentenceEnd + 1)
+        : truncated;
+      console.log(`Truncated text from ${text.trim().length} to ${narrationText.length} chars`);
+    }
+
     const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
       method: 'POST',
       headers: {
@@ -74,7 +91,7 @@ Deno.serve(async (req: Request) => {
         'xi-api-key': elevenLabsApiKey,
       },
       body: JSON.stringify({
-        text: text.trim(),
+        text: narrationText,
         model_id: 'eleven_multilingual_v2',
         voice_settings: {
           stability: 0.5,
